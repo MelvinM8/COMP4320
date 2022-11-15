@@ -1,0 +1,26 @@
+Script started on Fri 28 Oct 2022 01:06:00 PM CDT
+[?1034hbash-4.2$ g++ -o UDPClient C[KUDp[KPClient.cpp
+bash-4.2$ ./UDPClient [K
+Successfully connected to server...
+
+Enter the probability of damaged packets: 5 15  25  5
+Enter the probability of lost packets: 5
+
+Successfully set Gremlin probabilities! They are shown below: 
+Damage Probability: 5%
+Loss Probability: 5%
+
+Sending request... GET TestFile
+
+Sequence Number: 00000
+Packet Size: 00512
+Checksum: 00488
+
+Successfully created the packet...
+GREMLIN: Packet successfully sent.
+Packet sent.
+Server: 0000488512
+bash-4.2$ e[Kexit
+exit
+
+Script done on Fri 28 Oct 2022 01:06:47 PM CDT
