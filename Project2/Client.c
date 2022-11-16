@@ -188,3 +188,53 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
 }
 
 // Main Function
+int main(int argc, char* argv[]) {
+    // Init Variables
+    char* ipAddress; // Desination IP Address
+    char* port; // Destination Port
+    int portVal; // Used convert port to int
+    int clientSocket; // Client socket
+    struct sockaddr_in serverAddress; // Server address
+
+    // Set defaults based on how many arguments are passed
+    if (argv[1] == NULL) {
+        ipAddress = "127.0.0.1"; // TODO: Change to local IP address
+        port = "8080"; // TODO: Change to local port
+    }
+    else if(argv[2] == NULL) {
+        ipAddress = argv[1];
+        port = "8080"; // TODO: Change to local port
+    }
+    else {
+        ipAddress = argv[1];
+        port = argv[2];
+    }
+
+    // COonvert port string to int value
+    portVal = atoi(port);
+
+    // Create socket
+    clientSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (clientSocket < 0) {
+        printf("CLIENT: ERROR! Socket creation failed.\n");
+        exit(0);
+    }
+    else {
+        printf("CLIENT: Socket created successfully.\n");
+    }
+
+    // Set server address
+    bzero(&serverAddress, sizeof(serverAddress));
+
+    // Assign the IP and Port Number for destination address 
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = inet_addr(ipAddress);
+    serverAddress.sin_port = htons(portVal);
+
+    // Initiate file transfer over UDP
+    GBNFileTransfer(clientSocket, serverAddress);
+
+    // Close client socket
+    close(clientSocket);
+    return 0;
+}
