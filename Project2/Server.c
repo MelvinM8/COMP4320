@@ -29,6 +29,8 @@
 #define MAX 512
 // Define Socket Address
 #define SA struct sockaddr
+// Define port
+#define PORT 10028
 
 // Go-Back-N File Transfer from Server to Client.
 void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSize, float errorProbability) {
