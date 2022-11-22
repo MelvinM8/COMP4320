@@ -22,7 +22,7 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include <time.h>
-#include <mhash.h>
+
 
 
 // Define max buffer size
@@ -71,7 +71,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
         // If the file exists, send it to the client
         if (serverFile != NULL) {
             // Inform client that file exists
-            sendto(sockfc, "OK", sizeof("OK"), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
+            sendto(sockfd, "OK", sizeof("OK"), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
 
             // Clear buffers
             bzero(messageBuffer, sizeof(messageBuffer));
@@ -89,7 +89,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                 clock_t timeoutStart, timeoutEnd; // Clocks for timeout
                 double timeout; // Timeout value
                 unsigned int crc32 = 0; // CRC32 checksum
-                MHASH td; // Hash object - used for checking bit errors
+                
 
                 // Start timer
                 start = clock();
@@ -101,7 +101,8 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                 // Continuously send packets until the end of the file is reached
                 while (transferFlag == 1) {
                     // Send up to N Unacked packets
-                    for(int i = 0; i < windowSize; i++) { // Should be 32
+                    int i;
+                    for(i = 0; i < windowSize; i++) { // Should be 32
                         // Send current segment's number
                         bzero(messageBuffer, sizeof(messageBuffer));
                         sprintf(messageBuffer, "%d", i + j);
@@ -118,16 +119,29 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         bzero(messageBuffer, MAX);
                         packetSize = fread(messageBuffer, sizeof(char), MAX - 8, serverFile);
 
-                        // Compute checksum
-                        td = mhash_init(MHASH_CRC32);
-                        mhash(td, messageBuffer, packetSize);
-                        mhash_deinit(td, (void*) &crc32);
+                        // Calculate the checksum by adding the bytes of the packet body
+                        int k;
+                        for (k = 0; k < packetSize; k++) {
+                            crc32 += messageBuffer[k];
+                        }
+
+                        // Compare the checksum to the checksum in the packet
+                        if (crc32 == atoi(messageBuffer + packetSize)) {
+                            // Send packet to client
+                            sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
+                            printf("SERVER: Sending packet %s \n", messageBuffer);
+                        } else {
+                            // Send packet to client
+                            sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
+                            printf("SERVER: Sending packet %s \n", messageBuffer);
+                        }
 
                         // Gremlin
                         float p = fabs(((float)rand()) / RAND_MAX);
                         if (errorProbability < p) {
                             // Randomly mess some things up
-                            for (int i = 0; i < 5; i++) {
+                            int i;
+                            for (i = 0; i < 5; i++) {
                                 crc32 += (rand() % 8 + 0) - 100;
                             }
                         }
@@ -174,7 +188,6 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
             printf("SERVER: File successfully sent to client.\n");
             printf("Time taken: %f seconds\n", timeTaken);
         }
-    }
     else {
         // If file not in server, print error. Send NULL back to client.
         printf("SERVER: ERROR! File %s not found.\n", fileName);
@@ -184,7 +197,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
 
 // Close the socket
 close(sockfd);
-
+}
 
 // Main function
 int main(int argc, char* argv[]) {
@@ -261,4 +274,3 @@ int main(int argc, char* argv[]) {
     close(serverSocket);
     return 0;
     }
-

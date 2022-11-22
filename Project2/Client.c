@@ -22,7 +22,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h>
-#include <mhash.h>
 
 // Define max buffer size
 #define MAX 512
@@ -96,7 +95,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
 
             // If the file is NULL, something went wrong.
             // Otherwise, download the file.
-            if (clientFILE == NULL) {
+            if (clientFile == NULL) {
                 printf("CLIENT: ERROR! File %s could not be opened.\n");
             }
             else {
@@ -111,7 +110,6 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                 char localCRC32[8]; // Local CRC32 hash
                 char expectedCRC32[8]; // Expected CRC32 hash
                 unsigned int crc32 = 0; // CRC32 hash
-                MHASH td; // Hash object - Used for checking bit errors
 
                 // Start timer
                 start = clock(); // Start clock
@@ -131,16 +129,14 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                     lastSegment = atoi(messageBuffer);
 
                     // Receive packet size from server
-                    packSize = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&serverAddress, &length);
+                    packetSize = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&serverAddress, &length);
 
                     // Extract appened CRC32 hash from packet
-                    memcpy(expectedCRC32, messageBuffer + packSize - 8, 8);
+                    memcpy(expectedCRC32, messageBuffer + packetSize - 8, 8);
                     expectedCRC32[8] = '\0';
 
-                    // Checksum the packet
-                    td = mhash_init(MHASH_CRC32);
-                    mhash(td, messageBuffer, packSize - 8);
-                    mhash_deinit(td, localCRC32);
+                    // Calculate CRC32 hash of packet
+                    crc32 = crc32c(0, messageBuffer, packetSize - 8);
 
                     // Convert CRC32 hash to string
                     sprintf(localCRC32, "%x", crc32);
@@ -152,7 +148,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                             lastACK = lastSegment; // Updated ACK number
 
                             // Write to file
-                            fwrite(currWindow, sizeof(char), packSize - 8, clientFile);
+                            fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
                         }
                         else {
                             printf("CLIENT: ERROR! Bit error detected - Expected CRC32 Value of %s, but received %s.\n", expectedCRC32, localCRC32);
