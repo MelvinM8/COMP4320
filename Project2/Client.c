@@ -5,6 +5,12 @@
  * @version 0.1
  * @date 2022-11-15
  * 
+ * Compile Instructions:
+ * gcc servevr.c -o client
+ * 
+ * Run Instructions:
+ * ./client <server IP> 10028
+ * 
  * @copyright Copyright (c) 2022
  * 
  */
@@ -29,13 +35,12 @@
 #define SA struct sockaddr
 // Define Port
 #define PORT 10028
-// Define Window Size
 
 // Go-Back-N File Transfer from Server to Client.
 void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
     // Init Variables
-    char currWindow[32]; // Window size = 32
-    char messageBuffer[64]; // Should be 64
+    char currWindow[MAX]; // Window size = 32
+    char messageBuffer[MAX]; // Should be 64
     char fileName[MAX]; // Local file name
     int length; // Length of UDP message
     int n;
@@ -198,11 +203,11 @@ int main(int argc, char* argv[]) {
     // Set defaults based on how many arguments are passed
     if (argv[1] == NULL) {
         ipAddress = "127.0.0.1"; // TODO: Change to local IP address
-        port = "8080"; // TODO: Change to local port
+        port = "10028"; // Default port: 10028
     }
     else if(argv[2] == NULL) {
         ipAddress = argv[1];
-        port = "8080"; // TODO: Change to local port
+        port = "10028"; // Default port: 10028
     }
     else {
         ipAddress = argv[1];
