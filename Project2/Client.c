@@ -1,7 +1,7 @@
 /**
  * @file Client.c
  * @author Melvin Moreno, Garrison Moore, Will Thompson
- * @brief This is a client side implementatino of UDP File Transfer with Go-Back-N pipeline
+ * @brief This is a client side implementation of UDP File Transfer with Go-Back-N pipeline
  * @version 0.1
  * @date 2022-11-15
  * 
@@ -29,12 +29,13 @@
 #define SA struct sockaddr
 // Define Port
 #define PORT 10028
+// Define Window Size
 
 // Go-Back-N File Transfer from Server to Client.
 void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
     // Init Variables
-    char currWindow[MAX]; // Window size = 32
-    char messageBuffer[MAX]; // Should be 64
+    char currWindow[32]; // Window size = 32
+    char messageBuffer[64]; // Should be 64
     char fileName[MAX]; // Local file name
     int length; // Length of UDP message
     int n;
