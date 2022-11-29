@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
         port = argv[1];
         windowSize = atoi(argv[2]);
         errorProbability = atof(argv[3]);
-        timeoutInterval = atof(argv[4]);
+        timeOutInterval = atof(argv[4]);
     }
 
     // Ensure probability is between 0 and 1
