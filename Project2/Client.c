@@ -138,7 +138,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropPro
                     lastSegment = atoi(messageBuffer);
 
                     // Receive packet size from server
-                    packetSize = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&serverAddress, &length);
+                    packetSize = recvfrom(sockfd, currWindow, sizeof(currWindow), 0, (struct sockaddr *)&serverAddress, &length);
 
                     // GREMLIN
                     // Determine if client will drop packet baseed on GREMLIN probability
