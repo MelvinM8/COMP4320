@@ -150,7 +150,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         packetSize += 8;
 
                         // Send file
-                        if (sendto(sockfd, messageBuffer, packetSize, 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress)) < 0) {
+                        if (sendto(sockfd, messageBuffer, packetSize, 0, (struct sockaddr*) &clientAddress, length) < 0) {
                             printf("SERVER: ERROR! Failed to send file to client.\n");
                             printf("SERVER: Closing connection...\n");
                             exit(0);
@@ -166,27 +166,27 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                             lastACK = atoi(messageBuffer);
                         }
                         printf("SERVER: Received ACK %d \n", lastACK);
-                    }
+                    
 
-                    // If last received ACK is not the last segment sent, check if a timeout has occured
-                    if (lastACK != lastSegment) {
-                        timeoutEnd = clock();
-                        timeout = (double)(timeoutEnd - timeoutStart) / CLOCKS_PER_SEC;
+                        // If last received ACK is not the last segment sent, check if a timeout has occured
+                        if (lastACK != lastSegment) {
+                            timeoutEnd = clock();
+                            timeout = (double)(timeoutEnd - timeoutStart) / CLOCKS_PER_SEC;
 
-                        // Check if timeout has occured
-                        if (timeout > timeOutInterval) {
-                            printf("SERVER: Timeout occured. Resending segment %d \n", lastSegment);
-                            break;
+                            // Check if timeout has occured
+                            if (timeout > timeOutInterval) {
+                                printf("SERVER: Timeout occured. Resending segment %d \n", lastSegment);
+                                break;
+                            }
+                        }
+                        // Break out of loop if last segment sent is the last segment in the file
+                        if (packetSize == 0 || packetSize < MAX - 8) {
+                            if (lastACK == lastSegment) {
+                                transferFlag = 0;
+                                break;
+                            }
                         }
                     }
-                    // Break out of loop if last segment sent is the last segment in the file
-                    if (packetSize == 0 || packetSize < MAX - 8) {
-                        if (lastACK == lastSegment) {
-                            transferFlag = 0;
-                            break;
-                        }
-                    }
-                }
 
                 // Slide window
                 j = lastACK + 1;
@@ -199,6 +199,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
             printf("SERVER: File successfully sent to client.\n");
             printf("Time taken: %f seconds\n", timeTaken);
         }
+    }
     else {
         // If file not in server, print error. Send NULL back to client.
         printf("SERVER: ERROR! File %s not found.\n", fileName);
