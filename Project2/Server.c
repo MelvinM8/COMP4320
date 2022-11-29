@@ -5,6 +5,12 @@
  * @version 0.1
  * @date 2022-11-16
  * 
+ * Compile Instructions:
+ * gcc Server.c -o Server
+ * 
+ * Run Instructions:
+ * ./server [port] [window size] [bit error rate]
+ * 
  * @copyright Copyright (c) 2022
  * 
  */
@@ -22,7 +28,7 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include <time.h>
-
+#include <mhash.h>
 
 
 // Define max buffer size
@@ -33,7 +39,7 @@
 #define PORT 10028
 
 // Go-Back-N File Transfer from Server to Client.
-void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSize, float errorProbability) {
+void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSize, float errorProbability, float timeOutInterval) {
     // Init Variables
     char messageBuffer[MAX]; // Should be 64
     char fileName[MAX]; // Local file name
@@ -89,6 +95,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                 clock_t timeoutStart, timeoutEnd; // Clocks for timeout
                 double timeout; // Timeout value
                 unsigned int crc32 = 0; // CRC32 checksum
+                MHASH td; // Hash object
                 
 
                 // Start timer
@@ -112,6 +119,11 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         lastSegment = atoi(messageBuffer);
                         printf("SERVER: Sending segment %s \n", messageBuffer);
 
+                        // Start Timeout Timer if new segment is sent
+                        if (lastSegment == lastACK - 1) {
+                            timeoutStart = clock();
+                        }
+
                         // Set file read head to the bit location at the last ACK'd packet.
                         fseek(serverFile, (sizeof(char) * (MAX - 8) * (i + j)), SEEK_SET);
 
@@ -120,28 +132,15 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         packetSize = fread(messageBuffer, sizeof(char), MAX - 8, serverFile);
 
                         // Calculate the checksum by adding the bytes of the packet body
-                        int k;
-                        for (k = 0; k < packetSize; k++) {
-                            crc32 += messageBuffer[k];
-                        }
+                        td = mhash_init(MHASH_CRC32);
+                        mhash(td, messageBuffer, packetSize);
+                        mhash_deinit(td, &crc32);
 
-                        // Compare the checksum to the checksum in the packet
-                        if (crc32 == atoi(messageBuffer + packetSize)) {
-                            // Send packet to client
-                            sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
-                            printf("SERVER: Sending packet %s \n", messageBuffer);
-                        } else {
-                            // Send packet to client
-                            sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr*) &clientAddress, sizeof(clientAddress));
-                            printf("SERVER: Sending packet %s \n", messageBuffer);
-                        }
-
-                        // Gremlin
-                        float p = fabs(((float)rand()) / RAND_MAX);
-                        if (errorProbability < p) {
-                            // Randomly mess some things up
-                            int i;
-                            for (i = 0; i < 5; i++) {
+                        // Scramble the Checksum Value based on the error probability
+                        float p = fabs(((float)rand())/RAND_MAX);
+                        if (errorProbability > p) {
+                            int m;
+                            for (m = 0; m < 5; m++) {
                                 crc32 += (rand() % 8 + 0) - 100;
                             }
                         }
@@ -167,6 +166,18 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                             lastACK = atoi(messageBuffer);
                         }
                         printf("SERVER: Received ACK %d \n", lastACK);
+                    }
+
+                    // If last received ACK is not the last segment sent, check if a timeout has occured
+                    if (lastACK != lastSegment) {
+                        timeoutEnd = clock();
+                        timeout = (double)(timeoutEnd - timeoutStart) / CLOCKS_PER_SEC;
+
+                        // Check if timeout has occured
+                        if (timeout > timeOutInterval) {
+                            printf("SERVER: Timeout occured. Resending segment %d \n", lastSegment);
+                            break;
+                        }
                     }
                     // Break out of loop if last segment sent is the last segment in the file
                     if (packetSize == 0 || packetSize < MAX - 8) {
@@ -210,23 +221,28 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in clientAddress; // Client address
     int windowSize; // Window size
     float errorProbability; // Error probability
+    float timeOutInterval; // Timeout interval
 
     // Random seed
     srand(time(NULL));
 
     if (argv[1] == NULL) {
-        port = "8080"; // TODO: Change port number
+        port = "10028"; // Default port number: 10028
     }
     else if (argv[2] == NULL) {
-        windowSize = 32; // TODO: Change to 32
+        windowSize = 32; // Default window size: 32
     }
     else if (argv[3] == NULL) {
         errorProbability = 0.0;
+    }
+    else if (argv[4] == NULL) {
+        timeOutInterval = 0.5;
     }
     else {
         port = argv[1];
         windowSize = atoi(argv[2]);
         errorProbability = atof(argv[3]);
+        timeoutInterval = atof(argv[4]);
     }
 
     // Ensure probability is between 0 and 1
@@ -268,9 +284,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Initiate file transfer over UDP
-    GBNFileTransfer(serverSocket, clientAddress, windowSize, errorProbability);
+    GBNFileTransfer(serverSocket, clientAddress, windowSize, errorProbability, timeOutInterval);
 
     // Close server socket
     close(serverSocket);
     return 0;
     }
+    

@@ -6,7 +6,7 @@
  * @date 2022-11-15
  * 
  * Compile Instructions:
- * gcc servevr.c -o client
+ * gcc Client.c -o Client
  * 
  * Run Instructions:
  * ./client <server IP> 10028
@@ -28,6 +28,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h>
+#include <math.h>
+#include <mhash.h>
 
 // Define max buffer size
 #define MAX 512
@@ -37,7 +39,7 @@
 #define PORT 10028
 
 // Go-Back-N File Transfer from Server to Client.
-void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
+void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropProbability) {
     // Init Variables
     char currWindow[MAX]; // Window size = 32
     char messageBuffer[MAX]; // Should be 64
@@ -87,7 +89,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
         // If server finds file, start receiving it
         if ((strncmp(messageBuffer, "OK", 2)) == 0) {
             // Print OK message
-            printf("SERVEFR: %s\n", messageBuffer);
+            printf("SERVER: %s\n", messageBuffer);
 
             // Send OK message to client to begin transfer
             bzero(messageBuffer, sizeof(messageBuffer));
@@ -102,7 +104,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
             // If the file is NULL, something went wrong.
             // Otherwise, download the file.
             if (clientFile == NULL) {
-                printf("CLIENT: ERROR! File %s could not be opened.\n");
+                printf("CLIENT: ERROR! File %s could not be opened.\n", fileName);
             }
             else {
                 // Clear Buffer
@@ -116,6 +118,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                 char localCRC32[8]; // Local CRC32 hash
                 char expectedCRC32[8]; // Expected CRC32 hash
                 unsigned int crc32 = 0; // CRC32 hash
+                MHASH td; // Hash object
 
                 // Start timer
                 start = clock(); // Start clock
@@ -137,12 +140,18 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                     // Receive packet size from server
                     packetSize = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&serverAddress, &length);
 
-                    // Extract appened CRC32 hash from packet
+                    // GREMLIN
+                    // Determine if client will drop packet baseed on GREMLIN probability
+                    float q = fabs(((float)rand())/RAND_MAX);
+                    if (dropProbability < q) {
+                                            // Extract appened CRC32 hash from packet
                     memcpy(expectedCRC32, messageBuffer + packetSize - 8, 8);
                     expectedCRC32[8] = '\0';
 
                     // Calculate CRC32 hash of packet
-                    crc32 = crc32c(0, messageBuffer, packetSize - 8);
+                    td = mhash_init(MHASH_CRC32);
+                    mhash(td, currWindow, packetSize - 8);
+                    mhash_deinit(td, localCRC32);
 
                     // Convert CRC32 hash to string
                     sprintf(localCRC32, "%x", crc32);
@@ -157,10 +166,10 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
                             fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
                         }
                         else {
-                            printf("CLIENT: ERROR! Bit error detected - Expected CRC32 Value of %s, but received %s.\n", expectedCRC32, localCRC32);
-                            printf("Ignoring packet...\n");
+                            printf("CLIENT: ERROR! Bit error detected - Expected CRC32: %s, Received CRC32: %s\n", expectedCRC32, localCRC32);
                         }
                     }
+                }
                     // Send ACK to server for last segment received
                     bzero(messageBuffer, sizeof(messageBuffer));
                     sprintf(messageBuffer, "%d", lastACK);
@@ -187,6 +196,9 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress) {
             // Close file
             fclose(clientFile);
         }
+        else {
+            printf("SERVER: ERROR! File %s not found.\n", fileName);
+        }
     }
     close(sockfd);
 }
@@ -198,23 +210,32 @@ int main(int argc, char* argv[]) {
     char* port; // Destination Port
     int portVal; // Used convert port to int
     int clientSocket; // Client socket
+    float dropProbability; // Probability of packet drop
     struct sockaddr_in serverAddress; // Server address
 
     // Set defaults based on how many arguments are passed
     if (argv[1] == NULL) {
-        ipAddress = "127.0.0.1"; // TODO: Change to local IP address
-        port = "10028"; // Default port: 10028
+        ipAddress = "127.0.0.1"; // Default IP Address: 127.0.0.1
     }
     else if(argv[2] == NULL) {
-        ipAddress = argv[1];
         port = "10028"; // Default port: 10028
+    }
+    else if(argv[3] == NULL) {
+        dropProbability = 0.0; // Default drop probability: 0.0
     }
     else {
         ipAddress = argv[1];
         port = argv[2];
+        dropProbability = atof(argv[3]);
     }
 
-    // COonvert port string to int value
+    // Ensure probability is between 0 and 1
+    if (dropProbability < 0.0 || dropProbability > 1.0) {
+        printf("ERROR! Probability must be between 0 and 1.\n");
+        exit(0);
+    }
+
+    // Convert port string to int value
     portVal = atoi(port);
 
     // Create socket
@@ -236,7 +257,7 @@ int main(int argc, char* argv[]) {
     serverAddress.sin_port = htons(portVal);
 
     // Initiate file transfer over UDP
-    GBNFileTransfer(clientSocket, serverAddress);
+    GBNFileTransfer(clientSocket, serverAddress, dropProbability);
 
     // Close client socket
     close(clientSocket);
