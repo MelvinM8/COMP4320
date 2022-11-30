@@ -144,26 +144,26 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropPro
                     // Determine if client will drop packet baseed on GREMLIN probability
                     float q = fabs(((float)rand())/RAND_MAX);
                     if (dropProbability < q) {
-                                            // Extract appened CRC32 hash from packet
-                    memcpy(expectedCRC32, messageBuffer + packetSize - 8, 8);
-                    expectedCRC32[8] = '\0';
+                        // Extract appened CRC32 hash from packet
+                        memcpy(expectedCRC32, &currWindow[packetSize - 8], 8);
+                        expectedCRC32[8] = '\0';
 
-                    // Calculate CRC32 hash of packet
-                    td = mhash_init(MHASH_CRC32);
-                    mhash(td, currWindow, packetSize - 8);
-                    mhash_deinit(td, localCRC32);
+                        // Calculate CRC32 hash of packet
+                        td = mhash_init(MHASH_CRC32);
+                        mhash(td, currWindow, packetSize - 8);
+                        mhash_deinit(td, &crc32);
 
-                    // Convert CRC32 hash to string
-                    sprintf(localCRC32, "%x", crc32);
+                        // Convert CRC32 hash to string
+                        sprintf(localCRC32, "%x", crc32);
 
-                    // If no gaps in acknowledgement, write to file
-                    if (lastACK == lastSegment - 1) {
-                        // Check for bit errors using checksum
-                        if(strcmp(localCRC32, expectedCRC32) == 0) {
-                            lastACK = lastSegment; // Updated ACK number
+                        // If no gaps in acknowledgement, write to file
+                        if (lastACK == lastSegment - 1) {
+                            // Check for bit errors using checksum
+                            if(strcmp(localCRC32, expectedCRC32) == 0) {
+                                    lastACK = lastSegment; // Updated ACK number
 
-                            // Write to file
-                            fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
+                                    // Write to file
+                                    fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
                         }
                         else {
                             printf("CLIENT: ERROR! Bit error detected - Expected CRC32: %s, Received CRC32: %s\n", expectedCRC32, localCRC32);
@@ -212,6 +212,8 @@ int main(int argc, char* argv[]) {
     int clientSocket; // Client socket
     float dropProbability; // Probability of packet drop
     struct sockaddr_in serverAddress; // Server address
+
+    srand(time(NULL)); // Seed random number generator
 
     // Set defaults based on how many arguments are passed
     if (argv[1] == NULL) {
