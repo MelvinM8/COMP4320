@@ -119,7 +119,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         lastSegment = atoi(messageBuffer);
                         printf("SERVER: Sending segment %s \n", messageBuffer);
 
-                        // Start Timeout Timer if new segment is sent
+                        // Start timeout timer if new packet sent
                         if (lastSegment == lastACK - 1) {
                             timeoutStart = clock();
                         }
@@ -129,7 +129,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
 
                         // Clear message buffer and read in pakcet from server file
                         bzero(messageBuffer, MAX);
-                        packetSize = fread(messageBuffer, sizeof(char), MAX - 8, serverFile);
+                        packetSize = fread(messageBuffer, sizeof(char), sizeof(messageBuffer) - 8, serverFile);
 
                         // Calculate the checksum by adding the bytes of the packet body
                         td = mhash_init(MHASH_CRC32);
