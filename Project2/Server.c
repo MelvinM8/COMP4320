@@ -56,7 +56,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
         length = sizeof(clientAddress);
 
         // Receive file name from client
-        n = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&clientAddress, &length);
+        n = recvfrom(sockfd, messageBuffer, sizeof(messageBuffer), 0, (struct sockaddr *) &clientAddress, &length);
         messageBuffer[n] = '\0';
 
         // Print buffer which contains the client contents
