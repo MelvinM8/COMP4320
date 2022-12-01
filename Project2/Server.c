@@ -35,8 +35,7 @@
 #define MAX 512
 // Define Socket Address
 #define SA struct sockaddr
-// Define port
-#define PORT 10028
+
 
 // Go-Back-N File Transfer from Server to Client.
 void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSize, float errorProbability, float timeOutInterval) {
@@ -65,7 +64,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
         // Terminate connection if client sends 'exit'
         if ((strncmp(messageBuffer, "exit", 4)) == 0) {
             // send exit message back to client
-            sendto(sockfd, "exit", MAX, 0, (const struct sockaddr *)&clientAddress, sizeof(clientAddress));
+            sendto(sockfd, "exit", MAX, 0, (const struct sockaddr *) &clientAddress, sizeof(clientAddress));
             printf("SERVER: Exiting connection...\n");
             break;
         }
