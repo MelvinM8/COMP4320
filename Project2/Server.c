@@ -6,10 +6,10 @@
  * @date 2022-11-16
  * 
  * Compile Instructions:
- * gcc Server.c -o Server
+ * gcc Server.c -o Server -lmhash
  * 
  * Run Instructions:
- * ./server [port] [window size] [bit error rate]
+ * ./server [port] [window size] [bit error rate] [timeout]
  * 
  * @copyright Copyright (c) 2022
  * 
@@ -107,8 +107,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                 // Continuously send packets until the end of the file is reached
                 while (transferFlag == 1) {
                     // Send up to N Unacked packets
-                    int i;
-                    for(i = 0; i < windowSize; i++) { // Should be 32
+                    for(int i = 0; i < windowSize; i++) { // Should be 32
                         // Send current segment's number
                         bzero(messageBuffer, sizeof(messageBuffer));
                         sprintf(messageBuffer, "%d", i + j);
@@ -126,7 +125,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in clientAddress, int windowSiz
                         // Set file read head to the bit location at the last ACK'd packet.
                         fseek(serverFile, (sizeof(char) * (MAX - 8) * (i + j)), SEEK_SET);
 
-                        // Clear message buffer and read in pakcet from server file
+                        // Clear message buffer and read in packet from server file
                         bzero(messageBuffer, MAX);
                         packetSize = fread(messageBuffer, sizeof(char), sizeof(messageBuffer) - 8, serverFile);
 

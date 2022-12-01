@@ -6,10 +6,10 @@
  * @date 2022-11-15
  * 
  * Compile Instructions:
- * gcc Client.c -o Client
+ * gcc Client.c -o Client -lmhash
  * 
  * Run Instructions:
- * ./client <server IP> 10028
+ * ./Client <server IP> 10028
  * 
  * @copyright Copyright (c) 2022
  * 
@@ -35,8 +35,7 @@
 #define MAX 512
 // Define Socket Address
 #define SA struct sockaddr
-// Define Port
-#define PORT 10028
+
 
 // Go-Back-N File Transfer from Server to Client.
 void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropProbability) {
@@ -128,7 +127,7 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropPro
                     // Clear file buffer
                     bzero(currWindow, sizeof(currWindow));
 
-                    // Receive the segement number from server
+                    // Receive the segment number from server
                     bzero(messageBuffer, sizeof(messageBuffer));
                     n = recvfrom(sockfd, messageBuffer, MAX, 0, (struct sockaddr *)&serverAddress, &length);
                     messageBuffer[n] = '\0';
@@ -155,52 +154,54 @@ void GBNFileTransfer(int sockfd, struct sockaddr_in serverAddress, float dropPro
 
                         // Convert CRC32 hash to string
                         sprintf(localCRC32, "%x", crc32);
-
+                        
                         // If no gaps in acknowledgement, write to file
                         if (lastACK == lastSegment - 1) {
                             // Check for bit errors using checksum
                             if(strcmp(localCRC32, expectedCRC32) == 0) {
-                                    lastACK = lastSegment; // Updated ACK number
-
-                                    // Write to file
-                                    fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
+                                ; // Do nothing
                         }
                         else {
-                            printf("CLIENT: ERROR! Bit error detected - Expected CRC32: %s, Received CRC32: %s\n", expectedCRC32, localCRC32);
+                            printf("CLIENT: ERROR! Bit error detected in segment %d. Dropping packet...\n", lastSegment);
                         }
                     }
                 }
-                    // Send ACK to server for last segment received
-                    bzero(messageBuffer, sizeof(messageBuffer));
-                    sprintf(messageBuffer, "%d", lastACK);
-                    sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr *)&serverAddress, sizeof(serverAddress));
-                    printf("CLIENT: Sending ACK %s to server...\n", messageBuffer);
+                
+                // Write to file
+                fwrite(currWindow, sizeof(char), packetSize - 8, clientFile);
+                lastACK = lastSegment+1; // Updated ACK number
 
-                    // Break out of loop if last segment received and ACK'd
-                    if (packetSize == 0 || packetSize < MAX) {
-                        if (lastACK == lastSegment) {
-                            transferFlag = 0;
-                            break;
-                        }
+                // Send ACK to server for last segment received
+                bzero(messageBuffer, sizeof(messageBuffer));
+                sprintf(messageBuffer, "%d", lastACK);
+                sendto(sockfd, messageBuffer, sizeof(messageBuffer), 0, (const struct sockaddr *)&serverAddress, sizeof(serverAddress));      
+                printf("CLIENT: Sending ACK %s to server...\n", messageBuffer);          
+
+                // Break out of loop if last segment received and ACK'd
+                if (packetSize == 0 || packetSize < MAX) {
+                    if (lastACK == lastSegment) {
+                        transferFlag = 0;
+                        break;
                     }
                 }
             }
-            // End timer
-            end = clock(); // End clock
-            timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC; // Calculate time taken
+        }
+        // End timer
+        end = clock(); // End clock
+        timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC; // Calculate time taken
 
-            // Display success message and close file
-            printf("CLIENT: File transfer complete.\n");
-            printf("Time Taken: %f seconds.\n", timeTaken);
+        // Display success message and close file
+        printf("CLIENT: File transfer complete.\n");
+        printf("Time Taken: %f seconds.\n", timeTaken);
             
-            // Close file
-            fclose(clientFile);
-        }
-        else {
-            printf("SERVER: ERROR! File %s not found.\n", fileName);
-        }
+        // Close file
+        fclose(clientFile);
     }
-    close(sockfd);
+    else {
+            printf("SERVER: ERROR! File %s not found.\n", fileName);
+    }
+}
+close(sockfd);
 }
 
 // Main Function
